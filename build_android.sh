@@ -68,7 +68,7 @@ for ABI in $ABIS; do
   # B. Build Odin
   echo "   (Odin Build)"
   odin build src -target:$ODIN_TARGET -build-mode:obj -out:android/build/obj/$ABI/game.o \
-    -reloc-mode:pic -disable-red-zone -no-entry-point
+    -reloc-mode:pic -disable-red-zone -no-entry-point -define:ANDROID=true
 
   # C. Link
   echo "   (Linking)"
