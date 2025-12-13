@@ -4,6 +4,10 @@ set -e
 # --- 1. Environment & Config ---
 unset CPATH C_INCLUDE_PATH CPLUS_INCLUDE_PATH OBJC_INCLUDE_PATH
 
+# Define Output Directory
+OUTPUT_DIR="build/android"
+mkdir -p $OUTPUT_DIR
+
 ANDROID_HOME=${ANDROID_HOME:-/opt/android-sdk}
 NDK_HOME=${ANDROID_NDK_HOME:-/opt/android-ndk}
 API_VERSION=34
@@ -26,17 +30,28 @@ FLAGS="-ffunction-sections -funwind-tables -fstack-protector-strong -fPIC -Wall 
 	--sysroot=$SYSROOT -DANDROID -DPLATFORM_ANDROID -D__ANDROID_API__=$MIN_API_VERSION"
 INCLUDES="-I. -I$NATIVE_APP_GLUE"
 
-# --- 2. Assets ---
-echo "-> Copying assets..."
+# --- 2. Assets & Resources ---
+echo "-> Preparing Build Directory..."
+# Create build directories
 mkdir -p android/build/res/drawable-ldpi android/build/res/drawable-mdpi \
   android/build/res/drawable-hdpi android/build/res/drawable-xhdpi \
-  android/build/assets android/build/lib android/build/obj android/build/dex
+  android/build/assets android/build/lib android/build/obj android/build/dex \
+  android/build/src/com/raylib/game
 
+# Copy Assets
 cp assets/icon_ldpi.png android/build/res/drawable-ldpi/icon.png
 cp assets/icon_mdpi.png android/build/res/drawable-mdpi/icon.png
 cp assets/icon_hdpi.png android/build/res/drawable-hdpi/icon.png
 cp assets/icon_xhdpi.png android/build/res/drawable-xhdpi/icon.png
 cp -r assets/* android/build/assets/ || true
+
+# Copy Manifest (Use local if exists, otherwise default)
+if [ -f android/AndroidManifest.xml ]; then
+  cp android/AndroidManifest.xml android/build/AndroidManifest.xml
+fi
+
+# Copy Java Source (Fixing the scaffold issue)
+cp android/src/com/raylib/game/NativeLoader.java android/build/src/com/raylib/game/
 
 # --- 3. Compile Native Code ---
 for ABI in $ABIS; do
@@ -87,25 +102,34 @@ done
 
 # --- 4. Build APK ---
 echo "-> Packaging APK..."
+# Generate R.java
 $BUILD_TOOLS/aapt package -f -m -S android/build/res -J android/build/src -M android/build/AndroidManifest.xml -I $ANDROID_JAR
-# Changed from -source 1.8 to --release 8 to fix warnings on Java 21
-javac --release 8 -d android/build/obj -classpath $ANDROID_JAR:android/build/obj -sourcepath src android/build/src/com/raylib/game/R.java android/build/src/com/raylib/game/NativeLoader.java
+
+# Compile Java
+javac --release 8 -d android/build/obj -classpath $ANDROID_JAR:android/build/obj -sourcepath android/build/src android/build/src/com/raylib/game/R.java android/build/src/com/raylib/game/NativeLoader.java
+
+# Convert to Dex
 $BUILD_TOOLS/d8 --output android/build/dex --lib $ANDROID_JAR $(find android/build/obj -name "*.class")
-$BUILD_TOOLS/aapt package -f -M android/build/AndroidManifest.xml -S android/build/res -A assets -I $ANDROID_JAR -F game-unsigned.apk android/build/dex
+
+# Package
+$BUILD_TOOLS/aapt package -f -M android/build/AndroidManifest.xml -S android/build/res -A assets -I $ANDROID_JAR -F android/build/game-unsigned.apk android/build/dex
 
 echo "-> Adding Native Libraries..."
 cd android/build
 for ABI in $ABIS; do
-  # FIX: Removed ../../ prefix from BUILD_TOOLS since it is an absolute path
-  $BUILD_TOOLS/aapt add ../../game-unsigned.apk lib/$ABI/libmain.so
+  $BUILD_TOOLS/aapt add game-unsigned.apk lib/$ABI/libmain.so
 done
 cd ../..
 
 echo "-> Signing..."
-$BUILD_TOOLS/zipalign -f -p 4 game-unsigned.apk game-aligned.apk
+$BUILD_TOOLS/zipalign -f -p 4 android/build/game-unsigned.apk android/build/game-aligned.apk
+
 if [ ! -f android/debug.keystore ]; then
+  echo "Generating Keystore..."
   keytool -genkey -v -keystore android/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
 fi
-apksigner sign --ks android/debug.keystore --ks-pass pass:android --key-pass pass:android --out game.apk game-aligned.apk
 
-echo "Build Complete: game.apk"
+# Output to the main build/ folder
+apksigner sign --ks android/debug.keystore --ks-pass pass:android --key-pass pass:android --out $OUTPUT_DIR/game.apk android/build/game-aligned.apk
+
+echo "Build Complete: $OUTPUT_DIR/game.apk"

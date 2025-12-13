@@ -24,7 +24,7 @@ linux:
 windows:
 	@echo "-> Building for Windows..."
 	@mkdir -p $(BUILD_DIR)
-	odin build src -out:$(BUILD_DIR)/$(NAME).exe -target:windows_amd64
+	odin build src -out:$(BUILD_DIR)/windows/$(NAME).exe -target:windows_amd64
 	@echo "-> Done: $(BUILD_DIR)/$(NAME).exe"
 
 # 3. Android Build (Delegates to script)
@@ -35,16 +35,16 @@ android:
 # 4. Clean everything
 clean:
 	@echo "-> Cleaning up..."
-	rm -rf $(BUILD_DIR)
-	rm -f game.apk game-unsigned.apk game-aligned.apk android/debug.keystore
+	rm -rf build/
+	rm -rf android/build/
 	adb uninstall com.raylib.game
 	@echo "-> Cleaned."
 
 # 5. Run the Linux binary
 run: linux
 	@echo "-> Running..."
-	./$(BUILD_DIR)/$(NAME)_linux.bin
+	./$(BUILD_DIR)/linux/$(NAME)_linux.bin
 
 # 6. Install to Android Device (Shortcut)
 install:
-	adb install -r game.apk
+	adb install -r ./${BUILD_DIR}/android/$(NAME)_android.apk
