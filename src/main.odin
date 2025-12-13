@@ -19,12 +19,12 @@ when ANDROID {
 	AndroidApp :: struct {}
 
 	@(export)
-	android_main :: proc "c" (app: ^AndroidApp) {
+	android_entry :: proc "c" (_: i32, _: [^]cstring) -> i32 {
 		context = runtime.default_context()
 		rl.InitWindow(0, 0, "Ping Pong Android")
 		game_run()
+		return 0
 	}
-	// REMOVED: main_dummy
 }
 
 // SHARED GAME LOGIC

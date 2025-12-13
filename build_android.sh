@@ -79,6 +79,7 @@ for ABI in $ABIS; do
     -Wl,--warn-shared-textrel -Wl,--fatal-warnings \
     -Wl,--allow-multiple-definition \
     -Wl,-u,ANativeActivity_onCreate \
+    -Wl,--defsym=main=android_entry \
     -L$TOOLCHAIN/sysroot/usr/lib/$LIBPATH/$MIN_API_VERSION \
     -Llib/$ABI \
     -lraylib -llog -landroid -lEGL -lGLESv2 -lOpenSLES -latomic -lc -lm -ldl
