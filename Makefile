@@ -36,8 +36,8 @@ android:
 clean:
 	@echo "-> Cleaning up..."
 	rm -rf $(BUILD_DIR)
-	rm -rf android/build
 	rm -f game.apk game-unsigned.apk game-aligned.apk android/debug.keystore
+	adb uninstall com.raylib.game
 	@echo "-> Cleaned."
 
 # 5. Run the Linux binary
